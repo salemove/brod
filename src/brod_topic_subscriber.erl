@@ -357,8 +357,14 @@ handle_info({'DOWN', _Mref, process, Pid, Reason},
       %% not a consumer pid
       {noreply, State}
   end;
-handle_info(_Info, State) ->
-  {noreply, State}.
+handle_info(Info, #state{cb_module = CbModule, cb_state = CbState} = State) ->
+  %% Any unhandled messages are forwarded to the callback module to
+  %% support arbitrary message-passing.
+  %% Only the {noreply, State} return value is supported.
+  case brod_utils:optional_callback(CbModule, handle_info, [Info, CbState], {noreply, CbState}) of
+    {noreply, NewCbState} ->
+      {noreply, State#state{cb_state = NewCbState}}
+  end.
 
 %% @private
 handle_call(Call, _From, State) ->
