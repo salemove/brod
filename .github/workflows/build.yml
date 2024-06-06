@@ -70,33 +70,3 @@ jobs:
           export KAFKA_VERSION=${{ matrix.kafka }}
           echo "Running Kafka ${KAFKA_VERSION}"
           scripts/setup-test-env.sh && rebar3 do ct,eunit
-      - name: Store test logs
-        uses: actions/upload-artifact@v1
-        if: always()
-        with:
-          name: ct-logs-otp-${{matrix.otp}}-kafka-${{matrix.kafka}}
-          path: _build/test/logs
-      - name: Create Cover Reports
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: rebar3 do cover,coveralls send
-  docs:
-    needs: build
-    runs-on: ubuntu-20.04
-    name: Publish Documentation
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: OTP
-        uses: erlef/setup-beam@v1
-        with:
-          version-type: strict
-          otp-version: ${{ env.OTP_VERSION }}
-          rebar3-version: ${{ env.REBAR_VERSION }}
-      - name: Build Documentation
-        run: rebar3 do hex build
-      - name: Publish documentation
-        uses: actions/upload-artifact@v1
-        with:
-          name: edoc
-          path: doc
