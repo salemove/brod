@@ -503,7 +503,15 @@ maybe_start_worker( _MemberId
                   ) -> {ok, pid()}.
 start_worker(Client, Topic, MessageType, Partition, ConsumerConfig,
              StartOptions) ->
-  {ok, Pid} = brod_topic_subscriber:start_link( Client
+  Client1 = case proplists:get_value(spawn_dedicated_client, ConsumerConfig, false) of
+    false -> 
+      Client;
+    {true, {Endpoints, ClientConfig} = _Bootstrap} ->
+      ClientId = list_to_atom(atom_to_list(Client) ++ binary_to_list(<<"-group-subscriber-v2-">>) ++ binary_to_list(Topic) ++ integer_to_list(Partition)),
+      {ok, _Pid} = brod_client:start_link(Endpoints, ClientId, ClientConfig),
+      ClientId
+  end,
+  {ok, Pid} = brod_topic_subscriber:start_link( Client1
                                               , Topic
                                               , [Partition]
                                               , ConsumerConfig
