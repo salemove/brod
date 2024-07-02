@@ -54,7 +54,7 @@ init(Topic, StartOpts) ->
    , begin_offset := BeginOffset
    , commit_fun   := CommitFun
    } = StartOpts,
-  InitInfo = maps:with( [topic, partition, group_id, commit_fun]
+  InitInfo = maps:with( [topic, partition, group_id, commit_fun, ack_fun]
                       , StartOpts
                       ),
   ?BROD_LOG_INFO("Starting group_subscriber_worker: ~p~n"
