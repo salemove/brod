@@ -406,9 +406,10 @@ handle_info(?SEND_FETCH_REQUEST, State0) ->
   {noreply, State};
 handle_info({'DOWN', _MonitorRef, process, Pid, _Reason},
             #state{subscriber = Pid} = State) ->
-  NewState = reset_buffer(State#state{ subscriber      = ?undef
-                                     , subscriber_mref = ?undef
-                                     }),
+  NewState0 = reset_buffer(State#state{ subscriber      = ?undef
+                                      , subscriber_mref = ?undef
+                                      }),
+  NewState = maybe_close_owned_connection(NewState0),
   {noreply, NewState};
 handle_info({'DOWN', _MonitorRef, process, Pid, _Reason},
             #state{connection = Pid} = State) ->
@@ -450,10 +451,11 @@ handle_call({unsubscribe, SubscriberPid}, _From,
   case SubscriberPid =:= CurrentSubscriber of
     true ->
       is_reference(Mref) andalso erlang:demonitor(Mref, [flush]),
-      NewState = State#state{ subscriber      = ?undef
-                            , subscriber_mref = ?undef
-                            },
-      {reply, ok, reset_buffer(NewState)};
+      NewState0 = State#state{ subscriber      = ?undef
+                             , subscriber_mref = ?undef
+                             },
+      NewState = maybe_close_owned_connection(reset_buffer(NewState0)),
+      {reply, ok, NewState};
     false ->
       {reply, {error, ignored}, State}
   end;
@@ -509,6 +511,18 @@ code_change(_OldVsn, State, _Extra) ->
 handle_conn_down(State0) ->
   State = State0#state{connection = ?undef, connection_mref = ?undef},
   ok = maybe_send_init_connection(State),
+  State.
+
+%% Close the connection if it's owned (linked) by this consumer.
+%% This kills any ghost fetch in-flight on the TCP connection.
+%% In shared mode (monitored connection), leave it alone.
+-spec maybe_close_owned_connection(state()) -> state().
+maybe_close_owned_connection(
+  #state{connection_mref = ?undef, connection = Conn} = State)
+  when is_pid(Conn) ->
+  kpro:close_connection(Conn),
+  State;
+maybe_close_owned_connection(State) ->
   State.
 
 do_debug(Pid, Debug) ->
